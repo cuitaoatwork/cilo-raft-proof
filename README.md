@@ -1,6 +1,6 @@
 # Crash tolerance of a replicated IEC 61850 interlock: TLA+ model
 
-This is the model and check script behind the crash-tolerance section of *A High-Availability Framework for Software Defined Intelligent Electronic Devices* (DPSP Europe 2027).
+This is the model and check script behind the crash-tolerance section of *A High Availability Architecture for Virtualised Protection and Control* (DPSP Europe 2027).
 
 Two IED replicas and a witness form one Raft group. The group replicates the CILO enable (`EnaOpn`/`EnaCls`). Before every select/operate, CSWI checks the enable. The model asks whether that check can ever see a stale value when members crash, leaders change, and some replicas hold stale local copies.
 
