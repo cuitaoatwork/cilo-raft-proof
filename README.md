@@ -19,16 +19,16 @@ With a local Java 11+ and [`tla2tools.jar`](https://github.com/tlaplus/tlaplus/r
 TLA2TOOLS=/path/to/tla2tools.jar make local
 ```
 
-Expected output (the Barrier run takes about 2 minutes on a 14-core machine):
+Expected output (the Barrier run takes about 2.5 minutes on a 14-core machine):
 
 ```
 Mode         Expected   Result           States     Time
-Local        violated   violated           2171       3s
-LeaderLocal  violated   violated           3925       3s
-Barrier      holds      holds           3235683     112s
+Local        violated   violated           1686       4s
+LeaderLocal  violated   violated           3064       4s
+Barrier      holds      holds           3924888     149s
 ```
 
-The state counts for the two violated runs depend on the number of TLC workers; the verdicts do not. Full TLC output, including the counterexample traces, is written to `results/<Mode>.log`. The script exits with status 0 only if all three verdicts match the expected ones.
+The two refuted modes run with one TLC worker, so their traces are shortest counterexamples and the numbers are reproducible; the Barrier run uses all cores. Full TLC output, including the counterexample traces, is written to `results/<Mode>.log`. The script exits with status 0 only if all three verdicts match the expected ones.
 
 ## What is modelled
 
@@ -45,7 +45,7 @@ The state counts for the two violated runs depend on the number of TLC workers; 
 - A commit requires a majority that stores the entry in the leader's term.
 
 **Faults.**
-- At most one member crashes.
+- At most one member crashes (crash-stop; restart is not modelled).
 - A crashed IED loses its local data model.
 - The model's default value, `permit`, is the worst case for a model that is not yet initialised.
 
@@ -54,6 +54,8 @@ The state counts for the two violated runs depend on the number of TLC workers; 
 - An IED replica forwards a request to any member that believes it is the leader, including the witness.
 
 **Write path.** A write is acknowledged and displayed only after it is committed (commit before display).
+
+**Convergent path.** At any time, an IED may apply to its local data model what its own Raft member has committed so far, which may lag behind the group.
 
 **Read variants for the CSWI check** (`Mode`):
 
@@ -79,7 +81,7 @@ The state counts for the two violated runs depend on the number of TLC workers; 
 | Mode | Verdict | Counterexample |
 |---|---|---|
 | `Local` | violated | `block` is committed, but the local model of the replica that took the write has not been updated yet. A check there answers `permit` (5 steps). |
-| `LeaderLocal` | violated | Leader r1 of term 1 is cut off but still believes it leads. r2 and the witness elect a term-2 leader and commit `block`. A check forwarded to r1 answers `permit` from r1's own committed state (6 steps). |
+| `LeaderLocal` | violated | Leader r1 of term 1 is cut off but still believes it leads. r2 and the witness elect r2 for term 2 and commit `block`. A check forwarded to r1 answers `permit` from r1's own committed state (6 steps). |
 | `Barrier` | all four invariants hold | — |
 
-**Scope.** This is a bounded model check of an abstraction, not a mechanised proof. The paper gives the unbounded argument from Raft's safety properties. Byzantine faults, timing and the protection path are not modelled.
+**Scope.** This is a bounded model check of an abstraction, not a mechanised proof. The paper gives the unbounded argument from Raft's safety properties. Restart of a crashed member, Byzantine faults, timing and the protection path are not modelled.

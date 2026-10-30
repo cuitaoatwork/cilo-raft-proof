@@ -14,7 +14,9 @@ printf '%-12s %-10s %-10s %12s %8s\n' Mode Expected Result "States" Time
 for mode in Local LeaderLocal Barrier; do
   log="$OUT/$mode.log"
   start=$(date +%s)
-  java -XX:+UseParallelGC -cp "$JAR" tlc2.TLC -workers "$WORKERS" -deadlock \
+  # one worker for the refuted modes: breadth-first, so the trace is a shortest one
+  [ "$mode" = Barrier ] && w="$WORKERS" || w=1
+  java -XX:+UseParallelGC -cp "$JAR" tlc2.TLC -workers "$w" -deadlock \
        -metadir "/tmp/tlc-$mode-$$" -config "$mode.cfg" MC.tla > "$log" 2>&1
   secs=$(( $(date +%s) - start ))
   if grep -q "No error has been found" "$log"; then result=holds

@@ -6,7 +6,8 @@
 (*                                                                         *)
 (* Only the nodes taking part in a step learn about it, so a deposed       *)
 (* leader may still believe it leads, and a replica's local IEC 61850      *)
-(* model may be stale.  A crashed IED loses its local model.               *)
+(* model may be stale.  A crashed IED stops and loses its local model;     *)
+(* restart is not modelled.                                                *)
 (*                                                                         *)
 (* Mode selects how the CSWI check reads the enable before an operate:     *)
 (*   "Local"       the IED's local data model                              *)
@@ -81,7 +82,8 @@ Commit(n, Q) == LET k == Len(log[n]) IN   \* a majority of n's term stores entry
 Crash(n) ==
   /\ \A m \in Nodes : up[m]
   /\ up' = [up EXCEPT ![n] = FALSE]
-  /\ UNCHANGED <<term, leader, log, ci, disp, pend, chk, gc, acked, ops, nops>>
+  /\ disp' = [i \in IEDs |-> IF i = n THEN Default ELSE disp[i]]
+  /\ UNCHANGED <<term, leader, log, ci, pend, chk, gc, acked, ops, nops>>
 
 -----------------------------------------------------------------------------
 (* IED: the operator reaches any running IED replica, which forwards to   *)
@@ -102,6 +104,11 @@ AckWrite ==         \* commit before display
   /\ acked' = acked \cup {[k |-> pend.k, e |-> pend.e]}
   /\ pend' = None
   /\ UNCHANGED <<up, term, leader, log, ci, chk, gc, ops, nops>>
+
+Apply(i) ==         \* convergent path: the IED applies what its node has committed
+  /\ up[i]
+  /\ disp' = [disp EXCEPT ![i] = Val(log[i], ci[i])]
+  /\ UNCHANGED <<up, term, leader, log, ci, pend, chk, gc, acked, ops, nops>>
 
 Answer(v) == [s |-> Len(gc), e |-> Len(gc), v |-> v]
 
@@ -140,7 +147,7 @@ Next ==
   \/ \E n, m \in Nodes : Replicate(n, m)
   \/ \E n \in Nodes : Crash(n)
   \/ AckWrite \/ FinishBarrier
-  \/ \E i \in IEDs : CheckLocal(i)
+  \/ \E i \in IEDs : Apply(i) \/ CheckLocal(i)
   \/ \E i \in IEDs, L \in Nodes : CheckLeaderLocal(i, L) \/ CheckBarrier(i, L)
                                   \/ \E v \in {"permit", "block"} : Write(i, L, v)
 
